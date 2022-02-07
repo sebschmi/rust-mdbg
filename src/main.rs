@@ -37,6 +37,9 @@ use glob::glob;
 use dashmap::DashMap;
 use std::cell::UnsafeCell;
 use std::io::Result;
+use log::{info, LevelFilter};
+use simplelog::{ColorChoice, CombinedLogger, TerminalMode, TermLogger};
+
 //use std::fmt::Arguments;
 mod utils;
 mod minimizers;
@@ -210,16 +213,16 @@ fn read_first_n_reads(filename: &PathBuf, fasta_reads: bool, max_reads: usize) -
 }
 
 fn autodetect_k_l_d(filename: &PathBuf, fasta_reads: bool) -> (usize, usize, f64) {
-    println!("Parsing input sequences to estimate mean read length...");
+    info!("Parsing input sequences to estimate mean read length...");
     let (mean_length, _max_length) = read_first_n_reads(&filename, fasta_reads, 100);
-    println!("Detected mean read length of {} bp.",mean_length);
+    info!("Detected mean read length of {} bp.",mean_length);
     // a bit crude, but let's try
     let d = 0.003;
     //let coeff : f64 = 3.0/4.0;
     let slightly_below_readlen : f64 = mean_length as f64;
     let k = (d * slightly_below_readlen) as usize;
     let l = 12;
-    println!("Setting k = {} l = {} density = {}.", k, l, d);
+    info!("Setting k = {} l = {} density = {}.", k, l, d);
     (k, l, d)
 }
 
@@ -402,6 +405,19 @@ struct Opt {
 }
 
 fn main() {
+    CombinedLogger::init(vec![TermLogger::new(
+        if cfg!(debug_assertions) {
+            LevelFilter::Trace
+        } else {
+            LevelFilter::Info
+        },
+        simplelog::Config::default(),
+        TerminalMode::Mixed,
+        ColorChoice::Auto,
+    )]).unwrap();
+
+    info!("Logging initialised successfully");
+
     let start = Instant::now();
     let opt = Opt::from_args();      
     let mut uhs : bool = false;
@@ -440,44 +456,44 @@ fn main() {
     let filename_str = filename.to_str().unwrap();
         if filename_str.contains(".fasta.") || filename_str.contains(".fa.") || filename_str.ends_with(".fa") || filename_str.ends_with(".fasta") { // not so robust but will have to do for now
             fasta_reads = true;
-            println!("Input file: {}", filename_str);
-            println!("Format: FASTA");
+            info!("Input file: {}", filename_str);
+            info!("Format: FASTA");
     }
     if opt.k.is_none() && opt.l.is_none() && opt.density.is_none() {
-        println!("Autodetecting values for k, l, and density.");
+        info!("Autodetecting values for k, l, and density.");
         let (ak, al, ad) = autodetect_k_l_d(&filename, fasta_reads);
         k = ak; l = al; density = ad;
     }
     else {
-        if opt.k.is_some() {k = opt.k.unwrap()} else {println!("Warning: Using default k value ({}).", k);} 
-        if opt.l.is_some() {l = opt.l.unwrap()} else {println!("Warning: Using default l value ({}).", l);}
-        if opt.density.is_some() {density = opt.density.unwrap()} else {println!("Warning: Using default density value ({}%).", density * 100.0);}
+        if opt.k.is_some() {k = opt.k.unwrap()} else {info!("Warning: Using default k value ({}).", k);}
+        if opt.l.is_some() {l = opt.l.unwrap()} else {info!("Warning: Using default l value ({}).", l);}
+        if opt.density.is_some() {density = opt.density.unwrap()} else {info!("Warning: Using default density value ({}%).", density * 100.0);}
     }
-    if opt.n.is_some() {n = opt.n.unwrap()} else if error_correct {println!("Warning: Using default n value ({}).", n); }
-    if opt.t.is_some() {t = opt.t.unwrap()} else if error_correct {println!("Warning: Using default t value ({}).", t); }
-    if opt.minabund.is_some() {min_kmer_abundance = opt.minabund.unwrap() as DbgAbundance} else {println!("Warning: Using default minimum k-mer abundance value ({}).", min_kmer_abundance);}
-    if opt.presimp.is_some() {presimp = opt.presimp.unwrap();} else {println!("Warning: Using default pre-simp value (0.01).");}
-    if opt.threads.is_some() {threads = opt.threads.unwrap();} else {println!("Warning: Using default number of threads (8).");}
-    if opt.correction_threshold.is_some() {correction_threshold = opt.correction_threshold.unwrap()} else if error_correct {println!("Warning: using default correction threshold value ({}).", correction_threshold);}
+    if opt.n.is_some() {n = opt.n.unwrap()} else if error_correct {info!("Warning: Using default n value ({}).", n); }
+    if opt.t.is_some() {t = opt.t.unwrap()} else if error_correct {info!("Warning: Using default t value ({}).", t); }
+    if opt.minabund.is_some() {min_kmer_abundance = opt.minabund.unwrap() as DbgAbundance} else {info!("Warning: Using default minimum k-mer abundance value ({}).", min_kmer_abundance);}
+    if opt.presimp.is_some() {presimp = opt.presimp.unwrap();} else {info!("Warning: Using default pre-simp value (0.01).");}
+    if opt.threads.is_some() {threads = opt.threads.unwrap();} else {info!("Warning: Using default number of threads (8).");}
+    if opt.correction_threshold.is_some() {correction_threshold = opt.correction_threshold.unwrap()} else if error_correct {info!("Warning: using default correction threshold value ({}).", correction_threshold);}
     if opt.distance.is_some() {distance = opt.distance.unwrap()}
     if distance > 2 {distance = 2;}
     let distance_type = match distance {0 => "jaccard", 1 => "containment", 2 => "mash", _ => "mash"};
-    if opt.distance.is_none() && error_correct {println!("Warning: Using default distance metric ({}).", distance_type);}
+    if opt.distance.is_none() && error_correct {info!("Warning: Using default distance metric ({}).", distance_type);}
     if opt.restart_from_postcor {restart_from_postcor = true;}
     if opt.bf {use_bf = true;}
     if opt.hpc {use_hpc = true;}
     if opt.syncmers {use_syncmers = true;}
     if use_syncmers
     {
-        if opt.s.is_some() {s = opt.s.unwrap()} else {println!("Warning: Using default s value ({}).", s);}
+        if opt.s.is_some() {s = opt.s.unwrap()} else {info!("Warning: Using default s value ({}).", s);}
     }
     if opt.no_basespace {no_basespace = true;}
     output_prefix = PathBuf::from(format!("graph-k{}-d{}-l{}", k, density, l));
     if opt.lmer_counts.is_some() { 
         has_lmer_counts = true;
         lmer_counts_filename = opt.lmer_counts.unwrap(); 
-        if opt.lmer_counts_min.is_some() {lmer_counts_min = opt.lmer_counts_min.unwrap();} else {println!("Warning: Using default l-mer minimum count ({}).", lmer_counts_min);}
-        if opt.lmer_counts_max.is_some() {lmer_counts_max = opt.lmer_counts_max.unwrap();} else {println!("Warning: Using default l-mer maximum count ({}).", lmer_counts_max);}
+        if opt.lmer_counts_min.is_some() {lmer_counts_min = opt.lmer_counts_min.unwrap();} else {info!("Warning: Using default l-mer minimum count ({}).", lmer_counts_min);}
+        if opt.lmer_counts_max.is_some() {lmer_counts_max = opt.lmer_counts_max.unwrap();} else {info!("Warning: Using default l-mer maximum count ({}).", lmer_counts_max);}
     } 
     if opt.uhs.is_some() { 
         uhs = true;
@@ -487,7 +503,7 @@ fn main() {
         lcp = true;
         lcp_filename = opt.lcp.unwrap(); 
     } 
-    if opt.prefix.is_some() {output_prefix = opt.prefix.unwrap();} else {println!("Warning: Using default output prefix ({}).", output_prefix.to_str().unwrap());}
+    if opt.prefix.is_some() {output_prefix = opt.prefix.unwrap();} else {info!("Warning: Using default output prefix ({}).", output_prefix.to_str().unwrap());}
     let debug = opt.debug;
     let mut params = Params { 
         l,
@@ -583,7 +599,7 @@ fn main() {
     for path in glob(&format!("{}*.sequences", output_prefix.to_str().unwrap())).expect("Failed to read glob pattern.") {
         let path = path.unwrap();
         let path = path.to_str().unwrap(); // rust really requires me to split the let statement in two..
-        println!("Removing old sequences file: {}.", &path);
+        info!("Removing old sequences file: {}.", &path);
         let _res = fs::remove_file(path);
     }
     let seq_write = |file: &mut SeqFileType, s| {let _res = write!(file, "{}", s);};
@@ -644,7 +660,7 @@ fn main() {
                 contains_key = true;
             }
         }
-        //println!("abundance: {}",abundance);
+        //info!("abundance: {}",abundance);
         if params.reference || previous_abundance >= 1 {
             // now record what we will save
             // or, record in the hash table anyway to save later
@@ -715,7 +731,7 @@ fn main() {
                                             } else {String::new()};
             let seq = if reference {seq_for_ref} else {seq.to_string()}; 
             let read_obj = Read::extract(&seq_id, seq, &params, &minimizer_to_int, &uhs_bloom, &lcp_bloom);
-            //println!("Received read in worker thread, transformed len {}", read_obj.transformed.len());
+            //info!("Received read in worker thread, transformed len {}", read_obj.transformed.len());
 
 
             // that's the non-optimized version
@@ -775,12 +791,12 @@ fn main() {
         // parallel fasta parsing, with a main thread that writes to disk and populates hash tables
         let mut main_thread = |found: &Found| { // runs in main thread
             nb_reads += 1;
-            //println!("Received read in main thread, nb kmers: {}", vec.len());
+            //info!("Received read in main thread, nb kmers: {}", vec.len());
             let debug_only_display_read_and_minimizers = false;
             if debug_only_display_read_and_minimizers {
                 // debug: just displays the read id and the list of minimizers
                 let (_vec, read_obj) = found.as_ref().unwrap();
-                println!("{} {}", &read_obj.id.to_string(), &read_obj.transformed.to_vec().iter().join(" ")); 
+                info!("{} {}", &read_obj.id.to_string(), &read_obj.transformed.to_vec().iter().join(" "));
             }
             else if error_correct || reference {
                 let (_vec, read_obj) = found.as_ref().unwrap();
@@ -801,7 +817,7 @@ fn main() {
         };
 
         let buf = get_reader(&filename);
-        println!("Parsing input sequences...");
+        info!("Parsing input sequences...");
         if fasta_reads {
             let reader = seq_io::fasta::Reader::new(buf);
             let _res = read_process_fasta_records(reader, threads as u32, queue_len, process_read_fasta, |_record, found| {main_thread(found)});
@@ -812,7 +828,7 @@ fn main() {
         }
 
         pb.finish_print("Converted reads to k-min-mers.");
-        println!("Number of reads: {}", nb_reads);
+        info!("Number of reads: {}", nb_reads);
 
 
         // this part will correct the reads, and dump them to disk
@@ -889,9 +905,9 @@ fn main() {
     for mut sequences_file in sequences_files.iter_mut() {sequences_file.flush().unwrap();}
 
     // now DBG creation can start
-    println!("Number of nodes before abundance filter: {}", dbg_nodes.len());
+    info!("Number of nodes before abundance filter: {}", dbg_nodes.len());
     dbg_nodes.retain(|_x, c| c.abundance >= (min_kmer_abundance as DbgAbundance));
-    println!("Number of nodes after abundance filter: {}", dbg_nodes.len());
+    info!("Number of nodes after abundance filter: {}", dbg_nodes.len());
     let path = format!("{}{}", output_prefix.to_str().unwrap(),".gfa");
     let mut gfa_file = match File::create(&path) {
         Err(why) => panic!("Couldn't create {}: {}.", path, why.to_string()),
@@ -978,7 +994,7 @@ fn main() {
                     }
                     let shift = if ori1 == "+" {n1_entry.shift.0} else {n1_entry.shift.1};
                     let overlap_length = std::cmp::min(n1_seqlen - shift as u32, n2_seqlen - 1);
-                    //if overlap_length == n2_entry.seqlen - 1 { println!("huh, node {} (minus shift {}) has overlap length as long as its neighbor {}",n1_seqlen,shift, n2_seqlen); }
+                    //if overlap_length == n2_entry.seqlen - 1 { info!("huh, node {} (minus shift {}) has overlap length as long as its neighbor {}",n1_seqlen,shift, n2_seqlen); }
                     if presimp == 0.0 { // no presimp means we can write edges now
                         let l_line = format!("L\t{}\t{}\t{}\t{}\t{}M\n", n1_index, ori1, n2_index, ori2, overlap_length);
                         write!(gfa_file, "{}", l_line).expect("Error writing L line.");
@@ -1003,9 +1019,9 @@ fn main() {
             nb_edges += 1;
         }
     }
-    println!("Number of edges: {}", nb_edges);
+    info!("Number of edges: {}", nb_edges);
     if presimp > 0.0 {
-        println!("Pre-simp = {}: {} edges removed.",presimp,presimp_removed);
+        info!("Pre-simp = {}: {} edges removed.",presimp,presimp_removed);
     }
 
     // create a real bidirected dbg object using petgraph
@@ -1030,20 +1046,20 @@ fn main() {
       {
       let removed_edges_all = presimp::find_removed_edges(&gr, &dbg_nodes, presimp, threads);
       presimp::presimp(&mut gr, &removed_edges_all);
-      println!("{:?} edges removed during presimplification.", removed_edges_all.len());
+      info!("{:?} edges removed during presimplification.", removed_edges_all.len());
       }*/ 
 
     // gfa output
-    //println!("writing GFA..");
+    //info!("writing GFA..");
 
     // write sequences of minimizers for each node
     // and also read sequences corresponding to those minimizers
-    //println!("writing sequences..");
+    //info!("writing sequences..");
     //seq_output::write_minimizers_and_seq_of_kmers(&output_prefix, &mut node_indices, &kmer_origin, &dbg_nodes, k, l);
     //remove_file(seq_path);
 
     let duration = start.elapsed();
-    println!("Total execution time: {:?}", duration);
-    println!("Maximum RSS: {:?}GB", (get_memory_rusage() as f32) / 1024.0 / 1024.0 / 1024.0);
+    info!("Total execution time: {:?}", duration);
+    info!("Maximum RSS: {:?}GB", (get_memory_rusage() as f32) / 1024.0 / 1024.0 / 1024.0);
 }
 

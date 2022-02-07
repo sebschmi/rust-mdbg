@@ -13,6 +13,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 //use std::path::Path;
 use std::iter::FromIterator;
+use log::info;
 use xx_bloomfilter::Bloom;
 use super::RacyBloom;
 use super::read::Read;
@@ -95,8 +96,8 @@ pub fn minimizers_preparation(params: &mut Params, lmer_counts: &HashMap<String,
             }
         }
     
-    println!("Selected {} minimizer ID's and {} sequences.",int_to_minimizer.len(), minimizer_to_int.len());
-    println!("{} frequent l-mers skipped.", skips);
+    info!("Selected {} minimizer ID's and {} sequences.",int_to_minimizer.len(), minimizer_to_int.len());
+    info!("{} frequent l-mers skipped.", skips);
     (minimizer_to_int, int_to_minimizer)
 }
 
@@ -119,7 +120,7 @@ pub fn uhs_preparation(params: &mut Params, uhs_filename: &str) -> RacyBloom {
             }
         }
     }
-    println!("All universal k-mers read.");
+    info!("All universal k-mers read.");
     uhs_bloom
 }
 
@@ -144,6 +145,6 @@ pub fn lcp_preparation(params: &mut Params, lcp_filename: &str) -> RacyBloom {
             }
         }
     }
-    println!("All LCP core substrings read.");
+    info!("All LCP core substrings read.");
     lcp_bloom
 }

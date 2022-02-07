@@ -17,6 +17,7 @@
 
 use std::cmp::{max, Ordering};
 use std::collections::HashMap;
+use log::warn;
 use super::Params;
 use petgraph::graph::NodeIndex;
 //use petgraph::graph::EdgeIndex;
@@ -574,7 +575,7 @@ impl<F: MatchFunc> Aligner<F> {
         }
         if rev_alignment.score > alignment.score
         {
-            println!("WARNING! (rev alignment POA consensus score {} higher than fwd alignment {})", rev_alignment.score, alignment.score);
+            warn!("WARNING! (rev alignment POA consensus score {} higher than fwd alignment {})", rev_alignment.score, alignment.score);
         }
 
         (adjusted_cns, adjusted_es)

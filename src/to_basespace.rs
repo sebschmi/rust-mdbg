@@ -22,6 +22,9 @@ use std::mem::{self, MaybeUninit};
 use std::path::Path;
 use lzzzz::lz4f::BufReadDecompressor;
 use glob::glob;
+use log::{info, LevelFilter};
+use simplelog::{ColorChoice, CombinedLogger, TerminalMode, TermLogger};
+
 mod utils;
 
 #[derive(Debug, StructOpt)]
@@ -66,6 +69,19 @@ where P: AsRef<Path>, {
 }
 
 fn main() {
+    CombinedLogger::init(vec![TermLogger::new(
+        if cfg!(debug_assertions) {
+            LevelFilter::Trace
+        } else {
+            LevelFilter::Info
+        },
+        simplelog::Config::default(),
+        TerminalMode::Mixed,
+        ColorChoice::Auto,
+    )]).unwrap();
+
+    info!("Logging initialised successfully");
+
     let start = Instant::now();
     let opt = Opt::from_args();      
     let mut gfa_file;
@@ -82,7 +98,7 @@ fn main() {
     let mut node2unitig : HashMap<u64, String> = HashMap::new();
     let mut unitig_name = String::new();
     let mut process_gfa_line = | line :&str, current_unitig : &mut (String, Vec<(u64, bool)>)| -> bool {
-        //println!("line: {}", line);
+        //info!("line: {}", line);
         let is_S = line.starts_with('S');
         let is_L = line.starts_with('L');
         if is_S || is_L {
@@ -104,7 +120,7 @@ fn main() {
                 let v : Vec<&str> = line.split('\t').collect();
                 let node_index = v[4].parse::<u64>().unwrap();
                 current_unitig.1.push((node_index, v[3] == "+"));
-                //println!("added node {} to node2unitig",node_index);
+                //info!("added node {} to node2unitig",node_index);
                 node2unitig.insert(node_index, unitig_name.clone());
             }
         }
@@ -124,7 +140,7 @@ fn main() {
             unitigs.insert(current_unitig.0.clone(), current_unitig.1.to_vec());
         }
     }
-    println!("Done parsing GFA, got {} unitigs.", unitigs.len());
+    info!("Done parsing GFA, got {} unitigs.", unitigs.len());
 
     // Step 1.5:
     // determine, for each node, whether to load its whole sequence or just the end
@@ -151,7 +167,7 @@ fn main() {
             }
         }
     }
-    //println!("Marked {} mDBG nodes to load sequences", load_node.len());
+    //info!("Marked {} mDBG nodes to load sequences", load_node.len());
     // Step 2 : read the sequences file
     // we record in memory only the parts of the sequences we will need to fill in the complete GFA
 
@@ -164,7 +180,7 @@ fn main() {
         let node_id = v[0].parse::<u64>().unwrap();
         let unitig_name = node2unitig.get(&node_id);
         if !unitig_name.is_some() {return;}  // that node isn't used in a unitig.. weird.
-        //println!("unitig {} seq {} minim {:?}",unitig_name.unwrap(),v[0],v[5][1..v[5].len()-1].split(',').collect::<Vec<&str>>());
+        //info!("unitig {} seq {} minim {:?}",unitig_name.unwrap(),v[0],v[5][1..v[5].len()-1].split(',').collect::<Vec<&str>>());
         let minim_pos = v[5][1..v[5].len()-1].split(',').map(|s| s.trim().parse::<u32>().unwrap()).collect::<Vec<u32>>();
         let seq = v[2];
         let seq_len = seq.len() as u32;
@@ -198,7 +214,7 @@ fn main() {
         }
     }
     
-    println!("Done parsing .sequences file, recorded {} sequences.", sequences.len());
+    info!("Done parsing .sequences file, recorded {} sequences.", sequences.len());
 
     // Step 3 : read again the GFA file and at the same time write the .complete.gfa file with proper sequence
 
@@ -210,7 +226,7 @@ fn main() {
     write!(complete_gfa_file, "H\tVN:Z:1\n").expect("Error writing GFA header.");
     let reconstruct_seq = |unitig_name: &String| -> String {
         let mut res = String::new();
-        //println!("reconstructing unitig {}",unitig_name);
+        //info!("reconstructing unitig {}",unitig_name);
         let unitig = unitigs.get(unitig_name).unwrap();
         for (node_id, ori) in unitig.iter() {
             let kminmer_seq = sequences.get(&node_id).unwrap();
@@ -221,13 +237,13 @@ fn main() {
     let mut seq_lens : HashMap<String, usize> = HashMap::new();
 
     let mut process_gfa_line2 = |line: &str| {
-        //println!("line: {}", line);
+        //info!("line: {}", line);
         let is_S = line.starts_with('S');
         let is_L = line.starts_with('L');
         let is_A = line.starts_with('A');
         if is_S {
             //S       49194   *       LN:i:1  KC:i:157
-            //println!("{}",line);
+            //info!("{}",line);
             let mut v : Vec<String> = line.split('\t').map(|s| s.to_string()).collect();
             let unitig_name = v[1].clone();
             let seq = reconstruct_seq(&unitig_name);
@@ -249,7 +265,7 @@ fn main() {
             if false {
                 let source_name = &v[1];
                 let sink_name = &v[3];
-                //println!("{}",source_name);
+                //info!("{}",source_name);
                 let source_shift = shifts.get(source_name).unwrap();
                 let source_shift = if v[2] == "+" {source_shift.0} else {source_shift.1}; // find_overlap() from complete_gfa.py
                 let source_len = source_shift.1; //*seq_lens.get(source_name).unwrap() as u32;
@@ -266,7 +282,7 @@ fn main() {
             if overlap_len > seq_lens[&source_name] || overlap_len > seq_lens[&sink_name] {
                 let overlap_len = std::cmp::min(seq_lens[&source_name] - 1, seq_lens[&sink_name] - 1);
                 // muted it because a bit too chatty, and not so useful
-                //println!("fixing overlap for L-line {} (len:{}) {} (len:{}) from {} to {}M",source_name,seq_lens[&source_name],sink_name,seq_lens[&sink_name],v[5],overlap_len);
+                //info!("fixing overlap for L-line {} (len:{}) {} (len:{}) from {} to {}M",source_name,seq_lens[&source_name],sink_name,seq_lens[&sink_name],v[5],overlap_len);
                 v[5] = String::from(format!("{}M", overlap_len));
             }
             let l_line = v.join("\t");
@@ -289,7 +305,7 @@ fn main() {
 	    }
     }
     let duration = start.elapsed();
-    println!("Total execution time: {:?}", duration);
-    println!("Maximum RSS: {:?} GB", (get_memory_rusage() as f32)/1024.0/1024.0/1024.0);
+    info!("Total execution time: {:?}", duration);
+    info!("Maximum RSS: {:?} GB", (get_memory_rusage() as f32)/1024.0/1024.0/1024.0);
 }
 
