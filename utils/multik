@@ -48,8 +48,8 @@ function assemble {
 	threads=$6
 	DIR=$7
 	echo "assembly with k=$k"
-	\time cargo run --manifest-path $DIR/../Cargo.toml --release $cur_reads -k $k -l $l --density $d --minabund 2 --threads $threads --prefix $tprefix --bf >/dev/null
-	\time $DIR/magic_simplify $tprefix >/dev/null #2>/dev/null
+	\time cargo run --manifest-path $DIR/../Cargo.toml --release $cur_reads -k $k -l $l --density $d --minabund 2 --threads $threads --prefix $tprefix --bf
+	\time $DIR/magic_simplify $tprefix
 
 }
 
