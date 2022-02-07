@@ -22,7 +22,7 @@ set -x
 if ! command -v gfatools &> /dev/null
 then
 echo "please install gfatools"
-    exit
+    exit 1
 fi
 
 

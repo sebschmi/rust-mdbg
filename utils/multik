@@ -7,13 +7,19 @@
 if ! command -v seqtk &> /dev/null
 then
 	echo "please install seqtk, it is a prerequisite for this script"
-	exit
+	exit 1
+fi
+
+if ! command -v gfatools &> /dev/null
+then
+echo "please install gfatools"
+    exit 1
 fi
 
 if [ "$#" -lt 3 ]
 then
 	echo "usage: multik <reads.[fa|fq][.gz]> <prefix> <nb_threads> [restart_from]"
-    exit
+    exit 1
 fi
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
