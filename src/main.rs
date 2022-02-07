@@ -37,7 +37,7 @@ use glob::glob;
 use dashmap::DashMap;
 use std::cell::UnsafeCell;
 use std::io::Result;
-use log::{info, LevelFilter};
+use log::{debug, info, LevelFilter};
 use simplelog::{ColorChoice, CombinedLogger, TerminalMode, TermLogger};
 
 //use std::fmt::Arguments;
@@ -409,7 +409,7 @@ fn main() {
         if cfg!(debug_assertions) {
             LevelFilter::Trace
         } else {
-            LevelFilter::Info
+            LevelFilter::Debug
         },
         simplelog::Config::default(),
         TerminalMode::Mixed,
@@ -914,6 +914,8 @@ fn main() {
         Ok(file) => file,
     };
     writeln!(gfa_file, "H\tVN:Z:1").expect("Error writing GFA header.");
+    gfa_file.flush().expect("Could not flush GFA header"); // check if freeze on file writing is caused by file system
+    debug!("Wrote GFA header");
     // index k-1-mers
     let dbg_nodes_view = Arc::try_unwrap(dbg_nodes).unwrap().into_read_only();
     let mut km_index : HashMap<Overlap, Vec<&Kmer>> = HashMap::new(); 
@@ -935,10 +937,13 @@ fn main() {
         insert_km(first, node);
         insert_km(second, node);
     }
+    debug!("Wrote all GFA S lines");
+
     let mut nb_edges = 0;
     let mut presimp_removed = 0;
     let mut removed_edges : HashSet<(DbgIndex, DbgIndex)> = HashSet::new();
     let mut vec_edges = Vec::new(); // for presimp, keep a list of all edges to insert
+    debug!("presimp: {}", presimp);
 
     // create a vector of dbg edges (if we want to create a petgraph)
     // otherwise just output edges to gfa without keeping them in mem
@@ -1008,7 +1013,9 @@ fn main() {
             }
         }
     }
+
     if presimp > 0.0 { // write edges now because we couldn't earlier
+        debug!("write presimp edges");
         for edge in vec_edges.iter() {
             let (n1_index, ori1, n2_index, ori2, overlap_length) = edge;
             if removed_edges.contains(&(*n1_index, *n2_index)) || removed_edges.contains(&(*n2_index, *n1_index)) { // don't insert an edge if its reverse was deleted by presimp
