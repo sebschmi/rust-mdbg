@@ -27,7 +27,7 @@ fi
 
 set -e
 
-/usr/bin/time gfatools asm $base.gfa       -t 10,50000 -t 10,50000 -b 100000 -b 100000 -t 10,50000 -b 100000 -b 100000 -b 100000 -t 10,50000 -b 100000 -t 10,50000 -b 1000000 -t 10,150000 -b 1000000 -u > $base.tmp1.gfa
+env time gfatools asm $base.gfa       -t 10,50000 -t 10,50000 -b 100000 -b 100000 -t 10,50000 -b 100000 -b 100000 -b 100000 -t 10,50000 -b 100000 -t 10,50000 -b 1000000 -t 10,150000 -b 1000000 -u > $base.tmp1.gfa
 python $DIR/gfa_break_loops.py $base.tmp1.gfa > $base.tmp2.gfa
 
 # reincorporation of sequences into the gfa
@@ -44,7 +44,7 @@ filesize=$(ls -Lon "$base.tmp2.gfa" | awk '{ print $4 }')
 current_graph=$base.tmp2.gfa
 
 if (( filesize > 1000000)); then
-    /usr/bin/time gfatools asm $current_graph  -t 10,50000 -b 100000 -t 10,100000  -b 1000000 -t 10,150000 -b 1000000 -u > $base.tmp3.gfa
+    env time gfatools asm $current_graph  -t 10,50000 -b 100000 -t 10,100000  -b 1000000 -t 10,150000 -b 1000000 -u > $base.tmp3.gfa
     current_graph=$base.tmp3.gfa
 fi
 
@@ -52,7 +52,7 @@ fi
 if (( filesize > 100000000)); then
     python $DIR/gfa_break_loops.py $current_graph > $base.tmp4.gfa
     current_graph=$base.tmp4.gfa
-    /usr/bin/time gfatools asm $current_graph  -t 10,50000 -b 100000 -t 10,100000  -b 1000000 -t 10,200000 -b 1000000 -u > $base.msimpl.gfa
+    env time gfatools asm $current_graph  -t 10,50000 -b 100000 -t 10,100000  -b 1000000 -t 10,200000 -b 1000000 -u > $base.msimpl.gfa
 else
     mv $current_graph  $base.msimpl.gfa
 fi
